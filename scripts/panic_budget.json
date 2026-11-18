@@ -1,5 +1,5 @@
 {
-  "total": 158,
+  "total": 161,
   "tracked_files": {
     "crates/jcode-app-core/examples/tool_projection_probe.rs": 1,
     "crates/jcode-app-core/src/agent/provider.rs": 1,
@@ -27,6 +27,8 @@
     "crates/jcode-provider-anthropic/src/repair_cow_probe.rs": 2,
     "crates/jcode-provider-core/src/model_names.rs": 1,
     "crates/jcode-provider-cursor-runtime/src/wire.rs": 1,
+    "crates/jcode-provider-openai-runtime/src/lib.rs": 1,
+    "crates/jcode-provider-openai-runtime/src/openai_provider_impl.rs": 2,
     "crates/jcode-provider-openai/src/stream.rs": 3,
     "crates/jcode-render-core/src/math.rs": 4,
     "crates/jcode-render-core/src/preprocess.rs": 2,
