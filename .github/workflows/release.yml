@@ -209,9 +209,11 @@ jobs:
     # Each matrix architecture is independent. A failed Linux or macOS target
     # must not suppress assets produced by the other successful targets.
     continue-on-error: true
-    # v0.97.0 Intel macOS took 59m17s at optimization level 3. Keep headroom
-    # for healthy cold-cache builds without changing any acceptance checks.
-    timeout-minutes: 90
+    # v0.97.0 Intel macOS took 59m17s at optimization level 3. The Linux ARM64
+    # compatibility job (container pull, nightly + rust-src + build-std at opt
+    # level 3) needs additional headroom. Keep both below the cap without
+    # changing any acceptance checks.
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -223,9 +225,18 @@ jobs:
             target: x86_64-unknown-linux-gnu
             artifact: jcode-linux-x86_64
             compat_container: true
-          - os: ubuntu-24.04-arm
+          - # Build Linux ARM64 release assets on a CentOS 7 / manylinux2014
+            # glibc 2.17 baseline (quay.io/pypa/manylinux2014_aarch64) so they
+            # run on Xinchuang (信创) ARM64 machines that ship glibc 2.23/2.28
+            # and on Termux, while native ARM64 execution inside the container
+            # keeps the emulated-TLS contract. CARGO_BUILD_JOBS=2 balances the
+            # 4-core ARM runner's memory against the extra build-std pass.
+            os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
             artifact: jcode-linux-aarch64
+            compat_container: true
+            env:
+              CARGO_BUILD_JOBS: "2"
           - os: macos-latest
             target: aarch64-apple-darwin
             artifact: jcode-macos-aarch64
@@ -267,7 +278,7 @@ jobs:
       # (pthread_getspecific) sidesteps kernel TLS entirely. That needs
       # nightly (-Z tls-model, -Z build-std) with rust-src.
       - name: Install nightly for emulated TLS (aarch64 only)
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        if: matrix.target == 'aarch64-unknown-linux-gnu' && matrix.compat_container != true
         uses: dtolnay/rust-toolchain@nightly
         with:
           targets: aarch64-unknown-linux-gnu
@@ -326,7 +337,7 @@ jobs:
           JCODE_CI_BUILD: "1"
           JCODE_BUILD_SEMVER: ${{ env.RELEASE_TAG }}
 
-      - name: Build portable Linux x86_64 release binary
+      - name: Build portable Linux release binary (compat container)
         if: matrix.compat_container == true
         shell: bash
         run: scripts/build_linux_compat.sh dist
@@ -335,6 +346,7 @@ jobs:
           JCODE_CI_BUILD: "1"
           JCODE_BUILD_SEMVER: ${{ env.RELEASE_TAG }}
           JCODE_COMPAT_ARTIFACT: ${{ matrix.artifact }}
+          JCODE_COMPAT_TARGET: ${{ matrix.target }}
 
       - name: Verify release build preserved Cargo.lock
         shell: bash

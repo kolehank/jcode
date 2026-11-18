@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Build a Linux x86_64 release artifact against the CentOS 7 / manylinux2014
-# glibc 2.17 baseline so the resulting binary runs on older distributions as
-# well as newer Debian/Ubuntu containers used by Terminal-Bench tasks.
+# Build a portable Linux release artifact (x86_64 or aarch64) against the
+# CentOS 7 / manylinux2014 glibc 2.17 baseline so the resulting binary runs on
+# older distributions, newer Debian/Ubuntu containers used by Terminal-Bench
+# tasks, and Xinchuang (信创) machines that ship glibc 2.23/2.28. The ARM64
+# build additionally rebuilds std from source with emulated TLS (Termux
+# contract, same as the previous native-runner lane) while preserving the
+# same glibc 2.17 baseline via the manylinux2014_aarch64 image.
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 out_dir="${1:-$repo_root/dist}"
@@ -19,9 +23,17 @@ fi
 
 artifact="${JCODE_COMPAT_ARTIFACT:-jcode-linux-x86_64}"
 profile="${JCODE_COMPAT_PROFILE:-release}"
-image="${JCODE_COMPAT_IMAGE:-quay.io/pypa/manylinux2014_x86_64}"
+target="${JCODE_COMPAT_TARGET:-x86_64-unknown-linux-gnu}"
+case "$target" in
+  x86_64-unknown-linux-gnu) default_image="quay.io/pypa/manylinux2014_x86_64" ;;
+  aarch64-unknown-linux-gnu) default_image="quay.io/pypa/manylinux2014_aarch64" ;;
+  *)
+    echo "Unsupported compatibility target: $target (expected x86_64- or aarch64-unknown-linux-gnu)" >&2
+    exit 1
+    ;;
+esac
+image="${JCODE_COMPAT_IMAGE:-$default_image}"
 cache_root="${JCODE_COMPAT_CACHE_DIR:-$HOME/.cache/jcode-linux-compat}"
-target="x86_64-unknown-linux-gnu"
 
 mkdir -p "$out_dir" \
   "$cache_root/cargo-registry" \
@@ -136,6 +148,14 @@ docker run --rm \
     if [[ ! -x /root/.cargo/bin/cargo ]]; then
       curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain stable
     fi
+
+    # ARM64 preserves the emulated-TLS Termux contract, which needs the nightly
+    # compiler plus rust-src to rebuild std for the target (-Z build-std). The
+    # official aarch64-unknown-linux-gnu toolchain keeps the glibc 2.17 baseline
+    # of this container, so the linked artifact stays portable.
+    if [[ "$JCODE_COMPAT_TARGET" == aarch64-unknown-linux-gnu ]]; then
+      rustup toolchain install nightly --profile minimal --component rust-src
+    fi
 	    source /root/.cargo/env
 
 	    # Belt-and-suspenders: the host-computed metadata file
@@ -149,6 +169,17 @@ docker run --rm \
 	    export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-1}"
 	    export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS="${CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS:--C link-arg=-static-libgcc}"
 	    build_command=(cargo build)
+	    build_args=(--locked --profile "$JCODE_COMPAT_PROFILE" --target "$JCODE_COMPAT_TARGET" \
+	      -p jcode --bin jcode --features linux-compat-vendored-openssl)
+	    if [[ "$JCODE_COMPAT_TARGET" == aarch64-unknown-linux-gnu ]]; then
+	      # Same target-only emulated-TLS flags the native ARM64 release lane
+	      # used, expressed as the per-target env equivalent of
+	      # [target.aarch64-unknown-linux-gnu] rustflags. Rebuilt std inherits
+	      # them via -Z build-std, keeping Termux on glibc kernels working.
+	      export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS="${CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS:--C link-arg=-static-libgcc -Ztls-model=emulated}"
+	      export RUSTUP_TOOLCHAIN=nightly
+	      build_args+=( -Zbuild-std=std,panic_abort )
+	    fi
 	    if [[ "${JCODE_CI_BUILD:-0}" == 1 ]]; then
 	      # Hosted Ubuntu cannot produce our glibc 2.17 baseline yet. Run the
 	      # static justrust client inside the existing manylinux2014 container.
@@ -158,8 +189,7 @@ docker run --rm \
 	      export PATH="$JUSTRUST_INSTALL_DIR:$PATH"
 	      build_command=(justrust build --local)
 	    fi
-	    "${build_command[@]}" --locked --profile "$JCODE_COMPAT_PROFILE" --target "$JCODE_COMPAT_TARGET" \
-	      -p jcode --bin jcode --features linux-compat-vendored-openssl
+	    "${build_command[@]}" "${build_args[@]}"
 
         # Exercise the exact portable binary before packaging. Cloud upgrades
         # must not publish an artifact that cannot complete the handoff protocol.
@@ -173,6 +203,14 @@ docker run --rm \
         newest_glibc=$(objdump -T "$built" | sed -n "s/.*GLIBC_\([0-9][0-9.]*\).*/\1/p" | sort -Vu | tail -n1)
         if [[ -z "$newest_glibc" || "$(printf "%s\n" 2.17 "$newest_glibc" | sort -V | tail -n1)" != 2.17 ]]; then
           echo "error: portable binary exceeds the glibc 2.17 baseline: $newest_glibc" >&2
+          exit 1
+        fi
+        # ARM64 must keep the emulated-TLS contract that native Linux ARM64
+        # kernels without TLS Variant 2 (Termux/Android) rely on. Verify the
+        # rebuilt std actually carried the target flags into the linked binary.
+        if [[ "$JCODE_COMPAT_TARGET" == aarch64-unknown-linux-gnu ]] \
+           && ! objdump -T "$built" | grep -q "__emutls_get_address"; then
+          echo "error: ARM64 binary is missing emulated-TLS symbols (__emutls_get_address)" >&2
           exit 1
         fi
 

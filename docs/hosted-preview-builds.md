@@ -37,6 +37,13 @@ Linux ARM64 must retain rebuilt standard libraries and emulated TLS, default
 features, architecture validation and native ARM64 version execution before
 publication. Cross-compilation alone is not native runtime acceptance.
 
+Baseline delta vs stable release: this hosted ARM64 lane links against the
+managed Ubuntu 24.04 sysroot (glibc 2.39), so preview ARM64 archives are **not**
+Xinchuang (信创)-compatible. Stable release ARM64 assets are built inside the
+`manylinux2014_aarch64` container at glibc 2.17 (same emulated-TLS rebuild);
+preview ARM64 will only match once the managed sysroot gains glibc217/ARM64
+support.
+
 ## ARM caller and native runtime gate
 
 The ARM hosted matrix entry runs on x86 `ubuntu-24.04`, matching the x86

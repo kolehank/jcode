@@ -27,12 +27,17 @@ Inspection on October 14, 2026 found no justrust usage in the previous public
 release workflow and no `JCODE_API_KEY` repository secret. Hosted compilation is
 not yet a safe replacement for these release environments:
 
-- Linux x86_64 assets intentionally build against glibc 2.17 in manylinux2014.
-  Building on the hosted Ubuntu environment must not silently raise that ABI
-  requirement. Hosted needs a validated compatible sysroot/container path first.
-- Linux ARM64 rebuilds standard libraries with nightly and emulated TLS for
-  Termux compatibility. Current optimized-build routing only accepts native
-  Linux GNU targets, not this cross-target path from the x86_64 hosted fleet.
+- Linux x86_64 and ARM64 release assets intentionally build against glibc
+  2.17 in the manylinux2014 containers (`manylinux2014_x86_64` and
+  `manylinux2014_aarch64`), so both run on Xinchuang-class machines (glibc
+  2.23/2.28) as well as newer Debian/Ubuntu. Building on the hosted Ubuntu
+  environment must not silently raise that ABI requirement: the hosted ARM64
+  sysroot is Ubuntu 24.04 / glibc 2.39. Hosted needs a validated compatible
+  sysroot/container path first.
+- Linux ARM64 rebuilds standard libraries with nightly and emulated TLS
+  (Termux contract) inside the `manylinux2014_aarch64` container, preserving
+  the same glibc 2.17 baseline as the x86_64 asset instead of the previous
+  native-runner glibc 2.39 baseline.
 - Native Windows and macOS hosted routing remains disabled pending native worker,
   SDK, artifact-return, and runtime acceptance. FreeBSD has no hosted route.
 - The hosted environment allowlist does not forward the workflow's
@@ -65,8 +70,9 @@ compilation and compares its bytes afterward, failing on changes or a missing
 file without depending on `git diff`.
 The Linux compatibility helper, like the installer, comes from the immutable
 workflow commit, so old recovery tags receive the same locked build behavior.
-Both helper hashes are recorded in provenance. The glibc 2.17 baseline remains
-unchanged. Intel macOS receives a 90-minute build budget because v0.97.0 took
+Both helper hashes are recorded in provenance. The glibc 2.17 baseline for
+both the Linux x86_64 and ARM64 release assets remains unchanged. Intel macOS
+receives a 90-minute build budget because v0.97.0 took
 59 minutes 17 seconds against the former 60-minute cap.
 
 Allowlisted source recovery has a separate, explicit eligibility policy: the

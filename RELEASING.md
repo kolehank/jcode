@@ -29,8 +29,11 @@ quiet period**. A newer push cancels the old wait and any obsolete builds. After
 the quiet period, the workflow rejects superseded SHAs and uses the same
 `scripts/check_release_ci.py` exact-commit push-CI gate as stable releases. It
 builds six required archives: Linux, macOS, and Windows, each x86_64 and aarch64.
-Linux x86_64 reuses the glibc 2.17 compatibility builder, Linux ARM64 preserves
-emulated TLS, and macOS retains stable ad-hoc signing identity. Windows preview
+Linux x86_64 previews keep the glibc 2.17 baseline (manylinux2014 packaging),
+Linux ARM64 previews preserve emulated TLS but link against the hosted Ubuntu
+24.04 sysroot (glibc 2.39) and are not yet Xinchuang-compatible — stable
+release ARM64 assets are container-built in `manylinux2014_aarch64` at glibc
+2.17. macOS retains stable ad-hoc signing identity. Windows preview
 binaries are currently **unsigned experimental builds**, not signed stable
 releases. FreeBSD is not included in the preview platform set.
 

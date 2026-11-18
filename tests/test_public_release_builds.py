@@ -17,12 +17,21 @@ class PublicReleaseTests(unittest.TestCase):
         workflow = (ROOT / ".github/workflows/release.yml").read_text()
         self.assertIn('CARGO_PROFILE_RELEASE_OPT_LEVEL: "3"', workflow)
         self.assertIn("JUSTRUST_TOOLCHAIN: system", workflow)
-        self.assertIn("RUSTUP_TOOLCHAIN=nightly justrust build --local --locked -Z build-std=std,panic_abort", workflow)
         self.assertIn('& justrust @cargoArgs', workflow)
         self.assertIn('if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }', workflow)
         cargo = (ROOT / "Cargo.toml").read_text()
         self.assertIn('[profile.release]\nopt-level = 1', cargo)
         self.assertIn('[profile.selfdev]\ninherits = "release"\nopt-level = 0', cargo)
+        # Both Linux release lanes keep the glibc 2.17 baseline: x86_64 via
+        # manylinux2014_x86_64 and ARM64 via manylinux2014_aarch64, with the
+        # emulated-TLS Termux contract preserved by rebuilding std from source.
+        compat = (ROOT / "scripts/build_linux_compat.sh").read_text()
+        self.assertIn("manylinux2014_aarch64", compat)
+        self.assertIn("rustup toolchain install nightly --profile minimal --component rust-src", compat)
+        self.assertIn("-Ztls-model=emulated", compat)
+        self.assertIn("-Zbuild-std=std,panic_abort", compat)
+        workflow_aarch64 = workflow[workflow.index("aarch64-unknown-linux-gnu"):]
+        self.assertIn("compat_container: true", workflow_aarch64)
 
     def test_freebsd_lock_guard_without_git_metadata(self):
         workflow = (ROOT / ".github/workflows/release.yml").read_text()
@@ -90,9 +99,9 @@ class PublicReleaseTests(unittest.TestCase):
                     '#!/bin/sh\n'
                     'printf "%s" "' + name + '"\n'
                     'printf " <%s>" "$@"\n'
-                    'printf " toolchain=%s slots=%s level=%s\\n" '
+                    'printf " toolchain=%s slots=%s level=%s rustup=%s\\n" '
                     '"${JUSTRUST_TOOLCHAIN:-}" "${JUSTRUST_SLOTS:-}" '
-                    '"${CARGO_PROFILE_RELEASE_OPT_LEVEL:-}"\n'
+                    '"${CARGO_PROFILE_RELEASE_OPT_LEVEL:-}" "${RUSTUP_TOOLCHAIN:-}"\n'
                 )
                 command.chmod(0o755)
             for ci in ('0', '1'):
@@ -101,24 +110,30 @@ class PublicReleaseTests(unittest.TestCase):
                     # exported self-dev Cargo function or BASH_ENV startup file.
                     env = {key: value for key, value in os.environ.items()
                            if not key.startswith('BASH_FUNC_') and key != 'BASH_ENV'}
-                    env.update(PATH=f"{directory}:{os.environ['PATH']}",
-                               JCODE_CI_BUILD=ci, JCODE_COMPAT_PROFILE='release',
-                               JCODE_COMPAT_TARGET='x86_64-unknown-linux-gnu',
-                               CARGO_PROFILE_RELEASE_OPT_LEVEL='3')
-                    result = subprocess.run(['/bin/bash', '-eu', '-c', fragment],
-                                            env=env, capture_output=True, text=True)
-                    self.assertEqual(result.returncode, 0, result.stderr)
-                    self.assertIn('<--locked>', result.stdout)
-                    self.assertIn('<--profile> <release> <--target> <x86_64-unknown-linux-gnu>', result.stdout)
-                    self.assertIn('<linux-compat-vendored-openssl>', result.stdout)
-                    if ci == '1':
-                        self.assertIn('bash <scripts/install_justrust_ci.sh>', result.stdout)
-                        self.assertIn('justrust <build> <--local>', result.stdout)
-                        self.assertIn('toolchain=system slots=0 level=3', result.stdout)
-                    else:
-                        self.assertIn('cargo <build>', result.stdout)
-                        self.assertNotIn('install_justrust', result.stdout)
-                        self.assertNotIn('justrust <build>', result.stdout)
+                    base_env = dict(env, PATH=f"{directory}:{os.environ['PATH']}",
+                                    JCODE_CI_BUILD=ci, JCODE_COMPAT_PROFILE='release',
+                                    CARGO_PROFILE_RELEASE_OPT_LEVEL='3')
+                    for target in ('x86_64-unknown-linux-gnu', 'aarch64-unknown-linux-gnu'):
+                        with self.subTest(target=target):
+                            env = dict(base_env, JCODE_COMPAT_TARGET=target)
+                            result = subprocess.run(['/bin/bash', '-eu', '-c', fragment],
+                                                    env=env, capture_output=True, text=True)
+                            self.assertEqual(result.returncode, 0, result.stderr)
+                            self.assertIn('<--locked>', result.stdout)
+                            self.assertIn(f'<--target> <{target}>', result.stdout)
+                            self.assertIn('<linux-compat-vendored-openssl>', result.stdout)
+                            if target == 'aarch64-unknown-linux-gnu':
+                                self.assertIn('<--features> <linux-compat-vendored-openssl> <-Zbuild-std=std,panic_abort>',
+                                              result.stdout)
+                                self.assertIn('rustup=nightly', result.stdout)
+                            if ci == '1':
+                                self.assertIn('bash <scripts/install_justrust_ci.sh>', result.stdout)
+                                self.assertIn('justrust <build> <--local>', result.stdout)
+                                self.assertIn('toolchain=system slots=0 level=3', result.stdout)
+                            else:
+                                self.assertIn('cargo <build>', result.stdout)
+                                self.assertNotIn('install_justrust', result.stdout)
+                                self.assertNotIn('justrust <build>', result.stdout)
 
     def test_provenance_check_drains_version_output(self):
         source = (ROOT / 'scripts/build_linux_compat.sh').read_text()

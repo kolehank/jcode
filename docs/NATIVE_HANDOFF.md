@@ -37,7 +37,10 @@ not receive emulated TLS. The pinned justrust client manages checksum-pinned
 GNU cross-tools and its Cortex-A53 linker workaround. Its current sysroot is
 Ubuntu 24.04 / glibc 2.39. This lane is **not evidence of compatibility with older
 glibc, Android/Termux, or every release platform** and is not a default-release
-switch.
+switch. The default release ARM64 lane (`.github/workflows/release.yml`)
+separately builds GNU ARM64 inside the `manylinux2014_aarch64` container at the
+glibc 2.17 baseline with the same nightly emulated-TLS rebuild; this hosted
+handoff lane remains cross-host validation only.
 
 ## Pins and evidence
 
