@@ -175,16 +175,29 @@ docker run --rm \
 	      -p jcode --bin jcode --features linux-compat-vendored-openssl)
 	    if [[ "$JCODE_COMPAT_TARGET" == aarch64-unknown-linux-gnu ]]; then
 	      # Same target-only emulated-TLS flags the native ARM64 release lane
-	      # used, expressed as the per-target env equivalent of
-	      # [target.aarch64-unknown-linux-gnu] rustflags. Rebuilt std inherits
-	      # them via -Z build-std, keeping Termux on glibc kernels working.
+	      # uses. Express them as a cargo --config file, the exact equivalent
+	      # of [target.aarch64-unknown-linux-gnu] rustflags in .cargo/config
+	      # (the mechanism the native runner lane relies on), plus the
+	      # per-target env for good measure. The config file rides the
+	      # explicit cargo argument list so no wrapper/transport can drop it,
+	      # and -Z build-std rebuilds std with it (Termux contract). The env
+	      # form alone was lost when the CI build went through justrust
+	      # --local, which is why this lane uses plain cargo below.
 	      export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS="${CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS:--C link-arg=-static-libgcc -Ztls-model=emulated}"
 	      export RUSTUP_TOOLCHAIN=nightly
-	      build_args+=( -Zbuild-std=std,panic_abort )
+	      arm64_compat_config="$CARGO_TARGET_DIR/jcode-arm64-compat.toml"
+	      cat > "$arm64_compat_config" <<'JCODE_COMPAT_CONFIG_EOF'
+[target.aarch64-unknown-linux-gnu]
+rustflags = ["-C", "link-arg=-static-libgcc", "-Z", "tls-model=emulated"]
+JCODE_COMPAT_CONFIG_EOF
+	      build_args+=( --config "$arm64_compat_config" -Zbuild-std=std,panic_abort )
 	    fi
-	    if [[ "${JCODE_CI_BUILD:-0}" == 1 ]]; then
+	    if [[ "${JCODE_CI_BUILD:-0}" == 1 && "$JCODE_COMPAT_TARGET" != aarch64-unknown-linux-gnu ]]; then
 	      # Hosted Ubuntu cannot produce our glibc 2.17 baseline yet. Run the
 	      # static justrust client inside the existing manylinux2014 container.
+	      # The ARM64 lane deliberately uses plain cargo instead: the
+	      # container runs natively on ARM64 and cargo must receive the
+	      # emulated-TLS config file unmodified.
 	      export JUSTRUST_TOOLCHAIN=system JUSTRUST_SLOTS=0 JUSTRUST_NO_TELEMETRY=1
 	      export JUSTRUST_INSTALL_DIR=/root/.local/bin
 	      bash scripts/install_justrust_ci.sh

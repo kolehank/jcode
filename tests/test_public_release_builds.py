@@ -104,6 +104,8 @@ class PublicReleaseTests(unittest.TestCase):
                     '"${CARGO_PROFILE_RELEASE_OPT_LEVEL:-}" "${RUSTUP_TOOLCHAIN:-}"\n'
                 )
                 command.chmod(0o755)
+            # The ARM64 cargo --config file is written under CARGO_TARGET_DIR.
+            (directory / 'target').mkdir()
             for ci in ('0', '1'):
                 with self.subTest(ci=ci):
                     # Stubbed commands must not be shadowed by a caller's
@@ -112,7 +114,8 @@ class PublicReleaseTests(unittest.TestCase):
                            if not key.startswith('BASH_FUNC_') and key != 'BASH_ENV'}
                     base_env = dict(env, PATH=f"{directory}:{os.environ['PATH']}",
                                     JCODE_CI_BUILD=ci, JCODE_COMPAT_PROFILE='release',
-                                    CARGO_PROFILE_RELEASE_OPT_LEVEL='3')
+                                    CARGO_PROFILE_RELEASE_OPT_LEVEL='3',
+                                    CARGO_TARGET_DIR=str(directory / 'target'))
                     for target in ('x86_64-unknown-linux-gnu', 'aarch64-unknown-linux-gnu'):
                         with self.subTest(target=target):
                             env = dict(base_env, JCODE_COMPAT_TARGET=target)
@@ -123,13 +126,24 @@ class PublicReleaseTests(unittest.TestCase):
                             self.assertIn(f'<--target> <{target}>', result.stdout)
                             self.assertIn('<linux-compat-vendored-openssl>', result.stdout)
                             if target == 'aarch64-unknown-linux-gnu':
-                                self.assertIn('<--features> <linux-compat-vendored-openssl> <-Zbuild-std=std,panic_abort>',
-                                              result.stdout)
+                                self.assertIn('<--features> <linux-compat-vendored-openssl>', result.stdout)
+                                # Emulated TLS travels as a cargo --config file
+                                # (never dropped), and std is rebuilt from
+                                # source for the Termux contract. The lane uses
+                                # plain cargo rather than justrust --local so
+                                # the config cannot be scrubbed.
+                                self.assertIn('<--config>', result.stdout)
+                                self.assertIn('<-Zbuild-std=std,panic_abort>', result.stdout)
                                 self.assertIn('rustup=nightly', result.stdout)
                             if ci == '1':
-                                self.assertIn('bash <scripts/install_justrust_ci.sh>', result.stdout)
-                                self.assertIn('justrust <build> <--local>', result.stdout)
-                                self.assertIn('toolchain=system slots=0 level=3', result.stdout)
+                                if target == 'aarch64-unknown-linux-gnu':
+                                    self.assertIn('cargo <build>', result.stdout)
+                                    self.assertNotIn('install_justrust', result.stdout)
+                                    self.assertNotIn('justrust <build>', result.stdout)
+                                else:
+                                    self.assertIn('bash <scripts/install_justrust_ci.sh>', result.stdout)
+                                    self.assertIn('justrust <build> <--local>', result.stdout)
+                                    self.assertIn('toolchain=system slots=0 level=3', result.stdout)
                             else:
                                 self.assertIn('cargo <build>', result.stdout)
                                 self.assertNotIn('install_justrust', result.stdout)
