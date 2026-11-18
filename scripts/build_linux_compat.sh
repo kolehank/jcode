@@ -148,15 +148,17 @@ docker run --rm \
     if [[ ! -x /root/.cargo/bin/cargo ]]; then
       curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain stable
     fi
-
-    # ARM64 preserves the emulated-TLS Termux contract, which needs the nightly
-    # compiler plus rust-src to rebuild std for the target (-Z build-std). The
-    # official aarch64-unknown-linux-gnu toolchain keeps the glibc 2.17 baseline
-    # of this container, so the linked artifact stays portable.
-    if [[ "$JCODE_COMPAT_TARGET" == aarch64-unknown-linux-gnu ]]; then
-      rustup toolchain install nightly --profile minimal --component rust-src
-    fi
 	    source /root/.cargo/env
+
+	    # ARM64 preserves the emulated-TLS Termux contract, which needs the
+	    # nightly compiler plus rust-src to rebuild std for the target
+	    # (-Z build-std). The official aarch64-unknown-linux-gnu toolchain
+	    # keeps the glibc 2.17 baseline of this container, so the linked
+	    # artifact stays portable. Must run after `source /root/.cargo/env`
+	    # so rustup is on PATH.
+	    if [[ "$JCODE_COMPAT_TARGET" == aarch64-unknown-linux-gnu ]]; then
+	      rustup toolchain install nightly --profile minimal --component rust-src
+	    fi
 
 	    # Belt-and-suspenders: the host-computed metadata file
 	    # (JCODE_BUILD_METADATA_FILE=/jcode-build-meta) is the primary source of
