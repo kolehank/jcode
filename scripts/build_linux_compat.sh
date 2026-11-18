@@ -168,6 +168,7 @@ docker run --rm \
 	    git config --global --add safe.directory /work 2>/dev/null || true
 
 	    export CARGO_TARGET_DIR=/work/target/linux-compat
+	    mkdir -p "$CARGO_TARGET_DIR"
 	    export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-1}"
 	    export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS="${CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS:--C link-arg=-static-libgcc}"
 	    build_command=(cargo build)
