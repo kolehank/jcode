@@ -1,0 +1,3 @@
+[
+  "# jcode v1.0.2\n\n**Xinchuang (信创) ARM64 portability release.** The Linux ARM64 asset is now built against the glibc 2.17 baseline in the manylinux2014_aarch64 container (emulated-TLS Termux contract kept), so the same binary runs on Xinchuang machines with glibc 2.23/2.28, newer distros, and Termux. Includes the upstream master sync through 2026-11-18.\n\nDownload: <https://github.com/kolehank/jcode/releases/tag/v1.0.2>"
+]

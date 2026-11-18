@@ -1,0 +1,14 @@
+{
+  "version": "1.0.2",
+  "date": "2026-11-18",
+  "title": "Xinchuang ARM64 portability",
+  "highlights": [
+    "Linux ARM64 assets are now built on the glibc 2.17 baseline (manylinux2014_aarch64 container) with the emulated-TLS Termux contract preserved, so they run on Xinchuang machines shipping glibc 2.23/2.28 as well as on Termux"
+  ],
+  "improvements": [
+    "Sync upstream master, including async per-platform release publication and faster compatibility builds"
+  ],
+  "fixes": [
+    "Make the standard Linux x86_64/ARM64 release artifacts run in Xinchuang environments (glibc 2.23/2.28); the previous ARM64 asset linked against glibc 2.39 and could not start there"
+  ]
+}
