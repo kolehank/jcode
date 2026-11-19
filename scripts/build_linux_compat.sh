@@ -192,6 +192,11 @@ docker run --rm \
 rustflags = ["-C", "link-arg=-static-libgcc", "-Z", "tls-model=emulated"]
 JCODE_COMPAT_CONFIG_EOF
 	      build_args+=( --config "$arm64_compat_config" -Zbuild-std=std,panic_abort )
+	      # Also append the target flags to the workspace cargo config: the
+	      # exact mechanism the native ARM64 runner lane uses, so every
+	      # transport layer carries the emulated-TLS contract. The checkout
+	      # is ephemeral in CI; the Cargo.lock guard is unaffected.
+	      printf '\n[target.aarch64-unknown-linux-gnu]\nrustflags = ["-C", "link-arg=-static-libgcc", "-Z", "tls-model=emulated"]\n' >> /work/.cargo/config.toml
 	    fi
 	    if [[ "${JCODE_CI_BUILD:-0}" == 1 && "$JCODE_COMPAT_TARGET" != aarch64-unknown-linux-gnu ]]; then
 	      # Hosted Ubuntu cannot produce our glibc 2.17 baseline yet. Run the
@@ -229,10 +234,13 @@ JCODE_COMPAT_CONFIG_EOF
         # defined local symbol rather than a dynamic UNDEF from libgcc_s.
         # objdump -T would miss it, which previously failed a correct build.
         if [[ "$JCODE_COMPAT_TARGET" == aarch64-unknown-linux-gnu ]]; then
-          if ! readelf -sW "$built" | grep -q "__emutls_get_address" \
-             || ! readelf -sW "$built" | grep -q "__emutls_v." \
-             || readelf -lW "$built" | grep -q "TLS"; then
-            echo "error: ARM64 binary does not satisfy the emulated-TLS contract (__emutls_get_address absent or PT_TLS present)" >&2
+          emutls_get=$(readelf -sW "$built" 2>/dev/null | grep -c "__emutls_get_address" || true)
+          emutls_v=$(readelf -sW "$built" 2>/dev/null | grep -c "__emutls_v\." || true)
+          pt_tls=$(readelf -lW "$built" 2>/dev/null | grep -c "TLS" || true)
+          dyn_emutls=$(objdump -T "$built" 2>/dev/null | grep -c "__emutls" || true)
+          echo "ARM64 emulated-TLS diagnostics: readelf-sW(__emutls_get_address)=$emutls_get readelf-sW(__emutls_v.)=$emutls_v PT_TLS=$pt_tls dynsym(__emutls)=$dyn_emutls"
+          if [[ "$emutls_get" == "0" || "$emutls_v" == "0" || "$pt_tls" != "0" ]]; then
+            echo "error: ARM64 binary does not satisfy the emulated-TLS contract" >&2
             exit 1
           fi
         fi
