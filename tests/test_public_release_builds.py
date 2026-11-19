@@ -115,7 +115,8 @@ class PublicReleaseTests(unittest.TestCase):
                     base_env = dict(env, PATH=f"{directory}:{os.environ['PATH']}",
                                     JCODE_CI_BUILD=ci, JCODE_COMPAT_PROFILE='release',
                                     CARGO_PROFILE_RELEASE_OPT_LEVEL='3',
-                                    CARGO_TARGET_DIR=str(directory / 'target'))
+                                    CARGO_TARGET_DIR=str(directory / 'target'),
+                                    JCODE_COMPAT_WORKSPACE_CONFIG=str(directory / 'workspace-config.toml'))
                     for target in ('x86_64-unknown-linux-gnu', 'aarch64-unknown-linux-gnu'):
                         with self.subTest(target=target):
                             env = dict(base_env, JCODE_COMPAT_TARGET=target)

@@ -196,7 +196,9 @@ JCODE_COMPAT_CONFIG_EOF
 	      # exact mechanism the native ARM64 runner lane uses, so every
 	      # transport layer carries the emulated-TLS contract. The checkout
 	      # is ephemeral in CI; the Cargo.lock guard is unaffected.
-	      printf '\n[target.aarch64-unknown-linux-gnu]\nrustflags = ["-C", "link-arg=-static-libgcc", "-Z", "tls-model=emulated"]\n' >> /work/.cargo/config.toml
+	      # JCODE_COMPAT_WORKSPACE_CONFIG is overridable for test fixtures.
+	      workspace_cargo_config="${JCODE_COMPAT_WORKSPACE_CONFIG:-/work/.cargo/config.toml}"
+	      printf '\n[target.aarch64-unknown-linux-gnu]\nrustflags = ["-C", "link-arg=-static-libgcc", "-Z", "tls-model=emulated"]\n' >> "$workspace_cargo_config"
 	    fi
 	    if [[ "${JCODE_CI_BUILD:-0}" == 1 && "$JCODE_COMPAT_TARGET" != aarch64-unknown-linux-gnu ]]; then
 	      # Hosted Ubuntu cannot produce our glibc 2.17 baseline yet. Run the
