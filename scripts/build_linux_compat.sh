@@ -187,7 +187,7 @@ docker run --rm \
 	      export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS="${CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS:--C link-arg=-static-libgcc -Ztls-model=emulated}"
 	      export RUSTUP_TOOLCHAIN=nightly
 	      arm64_compat_config="$CARGO_TARGET_DIR/jcode-arm64-compat.toml"
-	      cat > "$arm64_compat_config" <<'JCODE_COMPAT_CONFIG_EOF'
+	      cat > "$arm64_compat_config" <<JCODE_COMPAT_CONFIG_EOF
 [target.aarch64-unknown-linux-gnu]
 rustflags = ["-C", "link-arg=-static-libgcc", "-Z", "tls-model=emulated"]
 JCODE_COMPAT_CONFIG_EOF
@@ -197,8 +197,15 @@ JCODE_COMPAT_CONFIG_EOF
 	      # transport layer carries the emulated-TLS contract. The checkout
 	      # is ephemeral in CI; the Cargo.lock guard is unaffected.
 	      # JCODE_COMPAT_WORKSPACE_CONFIG is overridable for test fixtures.
+	      # Note: this whole body is carried inside a single-quoted bash -lc
+	      # string on the host, so no single quotes may appear anywhere here -
+	      # heredoc markers stay unquoted (content has no $ or backticks).
 	      workspace_cargo_config="${JCODE_COMPAT_WORKSPACE_CONFIG:-/work/.cargo/config.toml}"
-	      printf '\n[target.aarch64-unknown-linux-gnu]\nrustflags = ["-C", "link-arg=-static-libgcc", "-Z", "tls-model=emulated"]\n' >> "$workspace_cargo_config"
+	      cat >> "$workspace_cargo_config" <<JCODE_WORKSPACE_CONFIG_EOF
+
+[target.aarch64-unknown-linux-gnu]
+rustflags = ["-C", "link-arg=-static-libgcc", "-Z", "tls-model=emulated"]
+JCODE_WORKSPACE_CONFIG_EOF
 	    fi
 	    if [[ "${JCODE_CI_BUILD:-0}" == 1 && "$JCODE_COMPAT_TARGET" != aarch64-unknown-linux-gnu ]]; then
 	      # Hosted Ubuntu cannot produce our glibc 2.17 baseline yet. Run the
