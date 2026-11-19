@@ -222,12 +222,19 @@ JCODE_COMPAT_CONFIG_EOF
           exit 1
         fi
         # ARM64 must keep the emulated-TLS contract that native Linux ARM64
-        # kernels without TLS Variant 2 (Termux/Android) rely on. Verify the
-        # rebuilt std actually carried the target flags into the linked binary.
-        if [[ "$JCODE_COMPAT_TARGET" == aarch64-unknown-linux-gnu ]] \
-           && ! objdump -T "$built" | grep -q "__emutls_get_address"; then
-          echo "error: ARM64 binary is missing emulated-TLS symbols (__emutls_get_address)" >&2
-          exit 1
+        # kernels without TLS Variant 2 (Termux/Android) rely on. Mirror the
+        # preview-hosted validation: readelf -sW covers both .symtab and
+        # .dynsym, which matters because this container links libgcc
+        # statically (-static-libgcc), so __emutls_get_address is a fully
+        # defined local symbol rather than a dynamic UNDEF from libgcc_s.
+        # objdump -T would miss it, which previously failed a correct build.
+        if [[ "$JCODE_COMPAT_TARGET" == aarch64-unknown-linux-gnu ]]; then
+          if ! readelf -sW "$built" | grep -q "__emutls_get_address" \
+             || ! readelf -sW "$built" | grep -q "__emutls_v." \
+             || readelf -lW "$built" | grep -q "TLS"; then
+            echo "error: ARM64 binary does not satisfy the emulated-TLS contract (__emutls_get_address absent or PT_TLS present)" >&2
+            exit 1
+          fi
         fi
 
 	    cp "$CARGO_TARGET_DIR/$JCODE_COMPAT_TARGET/$JCODE_COMPAT_PROFILE/jcode" "/out/'"$artifact"'.bin"
