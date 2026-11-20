@@ -1,0 +1,3 @@
+[
+  "# jcode v1.0.3\n\n**Upstream fix sync.** Four reviewed fixes without the upstream feature chains: OpenAI request construction no longer panics on runtime input, GPT-6.2 stable instructions stay in the cacheable history, passive screen-heartbeat metadata stays out of the cached prompt, and fuzzy transcript search fast-paths single-edit ASCII words.\n\nDownload: <https://github.com/kolehank/jcode/releases/tag/v1.0.3>"
+]

@@ -1,0 +1,16 @@
+{
+  "version": "1.0.3",
+  "date": "2026-11-20",
+  "title": "Upstream fix sync",
+  "highlights": [
+    "Syncs four reviewed upstream fixes onto the fork baseline: OpenAI request construction is hardened against runtime input panics, cacheable history keeps GPT-6.2 stable instructions, the cached prompt excludes passive screen-heartbeat metadata, and fuzzy transcript search fast-paths single-edit ASCII words"
+  ],
+  "improvements": [
+    "Fuzzy transcript search: single-edit ASCII word matches are resolved via a dedicated fast path"
+  ],
+  "fixes": [
+    "Remove runtime input panics from OpenAI request construction",
+    "Keep GPT-6.2 stable instructions in the cacheable history",
+    "Keep passive screen heartbeat metadata out of the cached prompt"
+  ]
+}
