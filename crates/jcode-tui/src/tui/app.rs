@@ -1010,7 +1010,6 @@ pub struct App {
     should_quit: bool,
     // Message queueing
     queued_messages: Vec<String>,
-    queued_images: Vec<(String, String)>,
     /// Slash (`/...`) and shell (`!...`) commands queued with Ctrl+Enter while
     /// a turn was running. They run as real commands once the turn ends.
     queued_commands: Vec<String>,

@@ -15,7 +15,6 @@ pub(super) struct RestoredReloadInput {
     pub pending_images: Vec<(String, String)>,
     pub submit_on_restore: bool,
     pub queued_messages: Vec<String>,
-    pub queued_images: Vec<(String, String)>,
     pub queued_commands: Vec<String>,
     pub hidden_queued_system_messages: Vec<String>,
     pub startup_status_notice: Option<String>,
@@ -553,11 +552,6 @@ impl App {
                 pending_images,
                 submit_on_restore,
                 queued_messages,
-                queued_images: value
-                    .get("queued_images")
-                    .cloned()
-                    .and_then(|v| serde_json::from_value(v).ok())
-                    .unwrap_or_default(),
                 queued_commands,
                 hidden_queued_system_messages,
                 startup_status_notice,
@@ -602,7 +596,6 @@ impl App {
             pending_images: Vec::new(),
             submit_on_restore: false,
             queued_messages: Vec::new(),
-            queued_images: Vec::new(),
             queued_commands: Vec::new(),
             hidden_queued_system_messages: Vec::new(),
             startup_status_notice: None,

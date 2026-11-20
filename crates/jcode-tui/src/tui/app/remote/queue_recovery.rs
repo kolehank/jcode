@@ -299,7 +299,7 @@ fn recover_queued_continuation(app: &mut App, reason: &str, rejected: bool) -> b
         app.hidden_queued_system_messages.insert(0, reminder);
     }
     if !pending.content.trim().is_empty() {
-        prepend_queued_payload(app, pending.content, pending.images);
+        app.queued_messages.insert(0, pending.content);
     }
     true
 }
@@ -320,18 +320,8 @@ pub(super) fn recover_local_interleave_to_queue(app: &mut App, reason: &str) -> 
         interleave.len(),
         app.queued_messages.len()
     ));
-    let images = std::mem::take(&mut app.interleave_images);
-    prepend_queued_payload(app, interleave, images);
+    app.queued_messages.insert(0, interleave);
     true
-}
-
-fn prepend_queued_payload(app: &mut App, text: String, mut images: Vec<(String, String)>) {
-    for queued in &mut app.queued_messages {
-        input::offset_image_markers(queued, app.queued_images.len(), images.len());
-    }
-    app.queued_messages.insert(0, text);
-    images.append(&mut app.queued_images);
-    app.queued_images = images;
 }
 
 pub(super) async fn recover_stranded_soft_interrupts(

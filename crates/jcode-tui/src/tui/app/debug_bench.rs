@@ -154,7 +154,6 @@ impl App {
         self.is_processing = false;
         self.clear_streaming_render_state();
         self.queued_messages.clear();
-        self.queued_images.clear();
         self.interleave_message = None;
         self.interleave_images.clear();
         self.pending_soft_interrupts.clear();
@@ -396,7 +395,6 @@ impl App {
         self.is_processing = false;
         self.clear_streaming_render_state();
         self.queued_messages.clear();
-        self.queued_images.clear();
         self.interleave_message = None;
         self.interleave_images.clear();
         self.pending_soft_interrupts.clear();
@@ -815,7 +813,6 @@ impl App {
         self.is_processing = false;
         self.clear_streaming_render_state();
         self.queued_messages.clear();
-        self.queued_images.clear();
         self.interleave_message = None;
         self.interleave_images.clear();
         self.pending_soft_interrupts.clear();
