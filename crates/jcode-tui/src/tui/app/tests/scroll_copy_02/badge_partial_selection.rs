@@ -189,8 +189,6 @@ fn test_drag_across_soft_wrapped_quote_copies_only_highlighted_text() {
         .map(|abs| crate::tui::ui::copy_viewport_line_text(abs).unwrap_or_default())
         .filter(|text| text.contains("word"))
         .collect();
-    assert!(rows.len() >= 2, "quote should soft-wrap: {screen}");
-    // Second word of the first row through the second word of the next row.
     let nth_word = |row: &str, n: usize| {
         row.split_whitespace()
             .filter(|word| word.starts_with("word"))
@@ -198,6 +196,21 @@ fn test_drag_across_soft_wrapped_quote_copies_only_highlighted_text() {
             .expect("word")
             .to_string()
     };
+    // The visible window can begin partway through the soft-wrapped quote, so
+    // its last row may hold a single trailing word. Keep only rows that carry
+    // at least two words, then drag from the second word of one such row to the
+    // second word of the next: still a real wrap-boundary drag, without
+    // depending on where the viewport happens to start.
+    let rows: Vec<String> = rows
+        .into_iter()
+        .filter(|row| {
+            row.split_whitespace()
+                .filter(|word| word.starts_with("word"))
+                .count()
+                >= 2
+        })
+        .collect();
+    assert!(rows.len() >= 2, "quote should soft-wrap: {screen}");
     let (from, to) = (nth_word(&rows[0], 1), nth_word(&rows[1], 1));
     let copied = drag_copy_between_in_chat(&mut app, &clipboard, &screen, &from, &to);
     let (a, b) = (
