@@ -2504,7 +2504,10 @@ fn guardrail_notice_for_transient_empty_does_not_blame_content_filter() {
 }
 
 #[tokio::test]
-async fn queued_jarvis_input_preempts_empty_post_tool_retry() {
+async fn queued_soft_input_preempts_empty_post_tool_retry() {
+    // The production guard (has_soft_interrupts) is source-agnostic; this fork
+    // does not carry the voice chain's JarvisUser variant, so the plain user
+    // source exercises the same drain-before-retry path.
     let _guard = crate::storage::lock_test_env();
     let provider: Arc<dyn Provider> = Arc::new(NativeAutoCompactionProvider);
     let registry = Registry::new(provider.clone()).await;
@@ -2513,7 +2516,7 @@ async fn queued_jarvis_input_preempts_empty_post_tool_retry() {
         "still speaking".into(),
         vec![],
         false,
-        SoftInterruptSource::JarvisUser,
+        SoftInterruptSource::User,
     );
     let mut attempts = 0;
     assert!(
