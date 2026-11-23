@@ -1589,10 +1589,12 @@ async fn run_ambient_visible() -> Result<()> {
     let mut app = tui::App::new(provider, registry);
     app.set_ambient_mode(context.system_prompt, context.initial_message);
 
-    let _ = crossterm::execute!(
+    if let Err(err) = crossterm::execute!(
         std::io::stdout(),
         crossterm::terminal::SetTitle(terminal_title("🤖 jcode ambient cycle"))
-    );
+    ) {
+        crate::logging::debug(&format!("Could not set ambient terminal title: {err}"));
+    }
 
     let result = app.run(terminal).await;
 

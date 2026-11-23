@@ -13,7 +13,7 @@
     "crates/jcode-app-core/src/server/client_state.rs": 1369,
     "crates/jcode-app-core/src/server/comm_control.rs": 2581,
     "crates/jcode-app-core/src/server/comm_session.rs": 1259,
-    "crates/jcode-app-core/src/server/debug_server_state.rs": 1258,
+    "crates/jcode-app-core/src/server/debug_server_state.rs": 1274,
     "crates/jcode-app-core/src/server/jade_relay.rs": 1338,
     "crates/jcode-app-core/src/server/provider_control.rs": 1403,
     "crates/jcode-app-core/src/server/swarm.rs": 2118,
@@ -107,7 +107,7 @@
     "src/bin/tui_bench.rs": 1765,
     "src/cli/acp.rs": 2018,
     "src/cli/cloud_move.rs": 2717,
-    "src/cli/commands.rs": 3393,
+    "src/cli/commands.rs": 3395,
     "src/cli/dispatch.rs": 1513,
     "src/cli/provider_init.rs": 1955,
     "src/cli/ssh_transport.rs": 1295
