@@ -1,9 +1,9 @@
 {
-  "total": 3856,
+  "total": 3863,
   "totals_by_pattern": {
-    "dot_ok": 1526,
+    "dot_ok": 1530,
     "let_underscore": 1403,
-    "unwrap_or_default": 927
+    "unwrap_or_default": 930
   },
   "tracked_files": {
     "crates/jcode-app-core/src/agent.rs": {
@@ -59,7 +59,7 @@
     "crates/jcode-app-core/src/agent/turn_execution.rs": {
       "dot_ok": 0,
       "let_underscore": 1,
-      "unwrap_or_default": 2
+      "unwrap_or_default": 3
     },
     "crates/jcode-app-core/src/agent/turn_loops.rs": {
       "dot_ok": 0,
@@ -2036,6 +2036,11 @@
       "let_underscore": 1,
       "unwrap_or_default": 0
     },
+    "crates/jcode-todo-policy/src/store/cancellation.rs": {
+      "dot_ok": 0,
+      "let_underscore": 0,
+      "unwrap_or_default": 2
+    },
     "crates/jcode-transport/src/unix.rs": {
       "dot_ok": 0,
       "let_underscore": 1,
@@ -2447,7 +2452,7 @@
       "unwrap_or_default": 3
     },
     "crates/jcode-tui/src/tui/app/remote/server_events.rs": {
-      "dot_ok": 7,
+      "dot_ok": 10,
       "let_underscore": 1,
       "unwrap_or_default": 3
     },
@@ -2585,6 +2590,11 @@
       "dot_ok": 0,
       "let_underscore": 0,
       "unwrap_or_default": 4
+    },
+    "crates/jcode-tui/src/tui/app/turn_system_reminder.rs": {
+      "dot_ok": 1,
+      "let_underscore": 0,
+      "unwrap_or_default": 0
     },
     "crates/jcode-tui/src/tui/app/ui_prefs.rs": {
       "dot_ok": 1,
