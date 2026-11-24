@@ -1,0 +1,21 @@
+{
+  "version": "1.0.4",
+  "date": "2026-11-23",
+  "title": "Todo cancellation, faster search, and safety updates",
+  "highlights": [
+    "Todos can be withdrawn by name with an archived reason and prerequisite checks, cancellation history persists separately from active work, and the pinned todo band keeps working sessions visible when it overflows",
+    "Session and model pickers now rank literal matches above typos and usage boosts, so the entry you are typing stops drowning in near-miss noise"
+  ],
+  "improvements": [
+    "Queued input is delivered before retrying an empty post-tool answer",
+    "Streaming and finalizing labels stay accurate, with stale websocket detail hidden",
+    "Late MCP tool announcements show as one-line summaries with schemas fetched on demand",
+    "Routine swarm wait receipts are hidden from the transcript",
+    "Reloading no longer loops on Termux installs or duplicate binaries"
+  ],
+  "fixes": [
+    "Bump cookie to 0.18.3 for RUSTSEC-2026-0594, url to 2.5.9 for RUSTSEC-2026-0592, and rustix to 1.1.6",
+    "Ambient terminal-title failures are logged instead of silently ignored",
+    "Drag-copy and swarm-receipt tests no longer depend on viewport edge cases"
+  ]
+}

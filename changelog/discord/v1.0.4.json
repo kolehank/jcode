@@ -1,0 +1,3 @@
+[
+  "# jcode v1.0.4\n\n**Todo cancellation, faster search, and safety updates.** Withdraw todos by name with an archived reason and prerequisite checks; cancellation history persists separately; the pinned todo band keeps working sessions visible. Session and model pickers rank literal matches above typos and usage boosts. Queued input is delivered before empty post-tool retries, streaming labels stay accurate, and routine swarm wait receipts are hidden. Security: cookie 0.18.3, url 2.5.9, rustix 1.1.6.\n\nDownload: <https://github.com/kolehank/jcode/releases/tag/v1.0.4>"
+]
