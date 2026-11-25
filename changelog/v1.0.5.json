@@ -1,0 +1,18 @@
+{
+  "version": "1.0.5",
+  "date": "2026-11-25",
+  "title": "Background task completion, stable stamps, and remote switch polish",
+  "highlights": [
+    "Cancelling a background task now publishes BackgroundTaskCompleted, so clients and transcripts see the task finish instead of waiting forever",
+    "Remote model and reasoning switches no longer print duplicate transcript messages, and the paced stream flushes immediately when the turn is done"
+  ],
+  "improvements": [
+    "Throttle and activity stamp files always carry a non-empty payload",
+    "Replay signed thinking when the Claude provider route resends history",
+    "Fork releases can point the installer smoke test at their own repository via JCODE_REPO"
+  ],
+  "fixes": [
+    "Flush the paced stream buffer on Done instead of deferring (net -45 lines)",
+    "Deduplicate companion-staged reasoning effort confirmations"
+  ]
+}

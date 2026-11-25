@@ -1,0 +1,3 @@
+[
+  "# jcode v1.0.5\n\n**Background task completion, stable stamps, and remote switch polish.** Cancelled background tasks now publish `BackgroundTaskCompleted`; throttle and activity stamps always carry a non-empty payload; signed thinking is replayed on the Claude route; remote model/reasoning switches no longer duplicate transcript messages and the paced stream flushes on Done.\n\nDownload: <https://github.com/kolehank/jcode/releases/tag/v1.0.5>"
+]
