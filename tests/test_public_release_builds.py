@@ -33,6 +33,16 @@ class PublicReleaseTests(unittest.TestCase):
         workflow_aarch64 = workflow[workflow.index("aarch64-unknown-linux-gnu"):]
         self.assertIn("compat_container: true", workflow_aarch64)
 
+    def test_fork_release_smoke_uses_the_current_repository(self):
+        # The installer defaults to the upstream project, but a fork's release
+        # smoke test must resolve that fork's own assets and source tag.
+        installer = (ROOT / "scripts/install.sh").read_text()
+        self.assertIn('REPO="${JCODE_REPO:-1jehuang/jcode}"', installer)
+        workflow = (ROOT / ".github/workflows/release.yml").read_text()
+        smoke = workflow[workflow.index("Smoke test public Linux installer"):]
+        smoke = smoke[:smoke.index("Queue Discord release announcement")]
+        self.assertIn('JCODE_REPO="${{ github.repository }}"', smoke)
+
     def test_freebsd_lock_guard_without_git_metadata(self):
         workflow = (ROOT / ".github/workflows/release.yml").read_text()
         vm = workflow.split('  build-freebsd:', 1)[1]

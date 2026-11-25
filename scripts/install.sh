@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="1jehuang/jcode"
+# Upstream project slug. Forks can point the installer at their own release
+# assets and source fallback with JCODE_REPO=owner/repo.
+REPO="${JCODE_REPO:-1jehuang/jcode}"
 RELEASE_METADATA_BASE="${JCODE_RELEASE_METADATA_BASE:-https://jcode.sh/releases}"
 IS_WINDOWS=false
 IS_TERMUX=false
