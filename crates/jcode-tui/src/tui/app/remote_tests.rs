@@ -1163,7 +1163,6 @@ fn forward_pending_reasoning_effort_sends_effort_request_to_server() {
             crate::protocol::ServerEvent::ReasoningEffortChanged {
                 id: 1,
                 effort: Some("high".to_string()),
-                model: Some("gpt-5.5".to_string()),
                 error: None,
             },
             &mut remote,
@@ -1182,7 +1181,6 @@ fn forward_pending_reasoning_effort_sends_effort_request_to_server() {
             crate::protocol::ServerEvent::ReasoningEffortChanged {
                 id: 2,
                 effort: Some("medium".to_string()),
-                model: None,
                 error: None,
             },
             &mut remote,
