@@ -322,14 +322,25 @@ async fn run_provider_tool_smoke_for_choice(
     .await
 }
 
+/// Some OpenAI-compatible gateways (for example Bailian/DashScope serving
+/// DeepSeek) stream the model's reasoning inside the visible content and keep
+/// the closing `</think>` marker in the final text. Only the text after the
+/// last marker is the model's answer; everything before it is reasoning. The
+/// stream parser also splits these markers into the thinking channel, so this
+/// is a guard for builds or proxies that still leak them.
+fn auth_test_final_answer(output: &str) -> &str {
+    output.rsplit("</think>").next().unwrap_or(output).trim()
+}
+
 fn validate_auth_test_tool_smoke_transcript(
     messages: &[crate::session::StoredMessage],
     output: &str,
 ) -> Result<()> {
-    if output.trim() != "AUTH_TEST_OK" {
+    let answer = auth_test_final_answer(output);
+    if answer != "AUTH_TEST_OK" {
         anyhow::bail!(
             "tool smoke final response was {:?}, expected exactly AUTH_TEST_OK",
-            output.trim()
+            answer
         );
     }
 
@@ -680,5 +691,31 @@ mod auth_tool_smoke_tests {
             .expect_err("errored tool result should fail")
             .to_string();
         assert!(err.contains("marked as an error"), "{err}");
+    }
+}
+
+#[cfg(test)]
+mod inline_reasoning_answer_tests {
+    use super::*;
+
+    #[test]
+    fn final_answer_ignores_leaked_inline_reasoning() {
+        assert_eq!(
+            auth_test_final_answer(
+                "The command returned \"JCODE_TOOL_OK\". Now I need to reply with exactly \
+                 AUTH_TEST_OK.</think>AUTH_TEST_OK"
+            ),
+            "AUTH_TEST_OK"
+        );
+        assert_eq!(auth_test_final_answer("AUTH_TEST_OK"), "AUTH_TEST_OK");
+        assert_eq!(auth_test_final_answer("  AUTH_TEST_OK\n"), "AUTH_TEST_OK");
+    }
+
+    #[test]
+    fn final_answer_keeps_plain_text_without_markers() {
+        assert_eq!(
+            auth_test_final_answer("AUTH_TEST_OK plus trailing words"),
+            "AUTH_TEST_OK plus trailing words"
+        );
     }
 }

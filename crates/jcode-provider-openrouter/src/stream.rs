@@ -44,6 +44,97 @@ fn sends_cumulative_reasoning_snapshots(model: &str) -> bool {
     crate::is_kimi_model(model) || model.to_ascii_lowercase().contains("kimi")
 }
 
+/// DeepSeek-style models served through some OpenAI-compatible gateways keep
+/// their reasoning inside the visible `content`, separated by inline
+/// `<think>…</think>` markers instead of the `reasoning_content` field (seen on
+/// Bailian/DashScope). Splitting it here keeps reasoning in the thinking
+/// channel for every client and leaves stored transcript text clean.
+///
+/// A partial tag at a chunk boundary is buffered so `<thi` + `nk>` still works.
+/// A closing marker without an opening one is treated as the end of leaked
+/// reasoning: everything before it is reasoning, not the answer.
+#[derive(Default)]
+struct InlineThinkSplitter {
+    in_think: bool,
+    pending: String,
+}
+
+impl InlineThinkSplitter {
+    const TAGS: [(&'static str, bool); 4] = [
+        ("<think>", true),
+        ("</think>", false),
+        ("<thinking>", true),
+        ("</thinking>", false),
+    ];
+
+    fn push(&mut self, chunk: &str) -> (String, String) {
+        let mut buffer = std::mem::take(&mut self.pending);
+        buffer.push_str(chunk);
+        let mut reasoning = String::new();
+        let mut text = String::new();
+        let mut rest = buffer.as_str();
+        loop {
+            let lower = rest.to_ascii_lowercase();
+            let mut next: Option<(usize, &'static str, bool)> = None;
+            for (tag, opens) in Self::TAGS {
+                if let Some(index) = lower.find(tag)
+                    && next.is_none_or(|(best, _, _)| index < best)
+                {
+                    next = Some((index, tag, opens));
+                }
+            }
+            let Some((index, tag, opens)) = next else {
+                if let Some(index) = rest.rfind('<') {
+                    let tail = &rest[index..];
+                    let lower_tail = tail.to_ascii_lowercase();
+                    if Self::TAGS
+                        .iter()
+                        .any(|(tag, _)| tag.starts_with(&lower_tail))
+                    {
+                        if self.in_think {
+                            reasoning.push_str(&rest[..index]);
+                        } else {
+                            text.push_str(&rest[..index]);
+                        }
+                        self.pending = tail.to_string();
+                        return (reasoning, text);
+                    }
+                }
+                if self.in_think {
+                    reasoning.push_str(rest);
+                } else {
+                    text.push_str(rest);
+                }
+                return (reasoning, text);
+            };
+            let before = &rest[..index];
+            // A closing tag while outside a think block means the gateway
+            // omitted the opening marker; the text before it is still reasoning.
+            let leaked_closing = !opens && !self.in_think;
+            if self.in_think || leaked_closing {
+                reasoning.push_str(before);
+            } else {
+                text.push_str(before);
+            }
+            self.in_think = opens;
+            rest = &rest[index + tag.len()..];
+        }
+    }
+
+    /// End-of-stream flush: never drop text held back as a partial tag.
+    fn flush(&mut self) -> (String, String) {
+        let pending = std::mem::take(&mut self.pending);
+        if pending.is_empty() {
+            return (String::new(), String::new());
+        }
+        if self.in_think {
+            (pending, String::new())
+        } else {
+            (String::new(), pending)
+        }
+    }
+}
+
 pub struct OpenRouterStream {
     inner: Pin<Box<dyn Stream<Item = Result<Bytes, reqwest::Error>> + Send>>,
     buffer: String,
@@ -62,6 +153,8 @@ pub struct OpenRouterStream {
     model: String,
     provider_pin: Arc<Mutex<Option<ProviderPin>>>,
     reasoning_buffer: String,
+    /// Splits DeepSeek-style inline `<think>` reasoning out of visible content.
+    inline_think: InlineThinkSplitter,
     finish_reason: Option<String>,
     message_end_emitted: bool,
 }
@@ -95,6 +188,7 @@ impl OpenRouterStream {
             model,
             provider_pin,
             reasoning_buffer: String::new(),
+            inline_think: InlineThinkSplitter::default(),
             finish_reason: None,
             message_end_emitted: false,
         }
@@ -441,8 +535,14 @@ impl OpenRouterStream {
                         if let Some(content) = delta.get("content").and_then(|c| c.as_str())
                             && !content.is_empty()
                         {
-                            self.pending
-                                .push_back(StreamEvent::TextDelta(content.to_string()));
+                            let (reasoning, text) = self.inline_think.push(content);
+                            if !reasoning.is_empty() {
+                                self.pending
+                                    .push_back(StreamEvent::ThinkingDelta(reasoning));
+                            }
+                            if !text.is_empty() {
+                                self.pending.push_back(StreamEvent::TextDelta(text));
+                            }
                         }
 
                         // Tool calls
@@ -581,6 +681,16 @@ impl Stream for OpenRouterStream {
                         if let Some(event) = self.parse_next_event() {
                             return Poll::Ready(Some(Ok(event)));
                         }
+                    }
+                    // Stream ended - flush any inline reasoning held back as a
+                    // partial tag before closing the message.
+                    let (reasoning, text) = self.inline_think.flush();
+                    if !reasoning.is_empty() {
+                        self.pending
+                            .push_back(StreamEvent::ThinkingDelta(reasoning));
+                    }
+                    if !text.is_empty() {
+                        self.pending.push_back(StreamEvent::TextDelta(text));
                     }
                     // Stream ended - emit any pending tool call
                     self.flush_tool_call_accumulators();

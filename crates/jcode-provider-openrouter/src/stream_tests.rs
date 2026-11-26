@@ -805,3 +805,72 @@ fn positional_fallback_tool_call_ids_are_unique_across_responses() {
 
     assert_ne!(first_turn_id, second_turn_id);
 }
+
+fn drain_reasoning_and_text(stream: &mut OpenRouterStream) -> (String, String) {
+    let mut reasoning = String::new();
+    let mut text = String::new();
+    while let Some(event) = stream.parse_next_event() {
+        match event {
+            StreamEvent::ThinkingDelta(delta) => reasoning.push_str(&delta),
+            StreamEvent::TextDelta(delta) => text.push_str(&delta),
+            _ => {}
+        }
+    }
+    (reasoning, text)
+}
+
+#[test]
+fn inline_think_splits_reasoning_from_visible_text() {
+    let mut stream = test_stream();
+    stream.buffer = concat!(
+        "data: {\"choices\":[{\"delta\":{\"content\":\"<think>planning</think>AUTH_TEST_OK\"}}]}\n\n",
+    )
+    .to_string();
+    let (reasoning, text) = drain_reasoning_and_text(&mut stream);
+    assert_eq!(reasoning, "planning");
+    assert_eq!(text, "AUTH_TEST_OK");
+}
+
+#[test]
+fn inline_think_handles_markers_split_across_chunks() {
+    let mut splitter = InlineThinkSplitter::default();
+    assert_eq!(splitter.push("<thi"), (String::new(), String::new()));
+    assert_eq!(
+        splitter.push("nk>plan</thi"),
+        ("plan".to_string(), String::new())
+    );
+    assert_eq!(
+        splitter.push("nk>answer"),
+        (String::new(), "answer".to_string())
+    );
+}
+
+#[test]
+fn inline_think_treats_a_leaked_closing_marker_as_reasoning() {
+    // Bailian-style gateways omit the opening marker and leave the closing one
+    // inside the content: the answer is only what follows it.
+    let mut splitter = InlineThinkSplitter::default();
+    assert_eq!(
+        splitter.push("thinking aloud</think>AUTH_TEST_OK"),
+        ("thinking aloud".to_string(), "AUTH_TEST_OK".to_string())
+    );
+}
+
+#[test]
+fn inline_think_leaves_plain_text_untouched() {
+    let mut splitter = InlineThinkSplitter::default();
+    assert_eq!(
+        splitter.push("hello <b>world</b>"),
+        (String::new(), "hello <b>world</b>".to_string())
+    );
+}
+
+#[test]
+fn inline_think_flush_never_drops_a_partial_tag() {
+    let mut splitter = InlineThinkSplitter::default();
+    assert_eq!(
+        splitter.push("done <"),
+        (String::new(), "done ".to_string())
+    );
+    assert_eq!(splitter.flush(), (String::new(), "<".to_string()));
+}
