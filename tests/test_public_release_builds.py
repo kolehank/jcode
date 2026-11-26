@@ -43,6 +43,12 @@ class PublicReleaseTests(unittest.TestCase):
         smoke = smoke[:smoke.index("Queue Discord release announcement")]
         self.assertIn('JCODE_REPO="${{ github.repository }}"', smoke)
 
+    def test_release_issue_closure_skips_repositories_without_issues(self):
+        workflow = (ROOT / ".github/workflows/release.yml").read_text()
+        step = workflow[workflow.index("Close issues included in the published release"):]
+        step = step[:step.index("Report Discord announcement queue failure")]
+        self.assertIn("has_issues", step)
+
     def test_freebsd_lock_guard_without_git_metadata(self):
         workflow = (ROOT / ".github/workflows/release.yml").read_text()
         vm = workflow.split('  build-freebsd:', 1)[1]

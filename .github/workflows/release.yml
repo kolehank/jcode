@@ -1286,8 +1286,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          label='triage: fixed-pending-release'
           repo="${GITHUB_REPOSITORY}"
+          # Forks commonly disable Issues; skipping keeps the release itself from
+          # being reported as failed after it was already published.
+          if [ "$(gh api "repos/${repo}" --jq '.has_issues')" != "true" ]; then
+            echo "Issues are disabled for ${repo}; skipping release issue closure."
+            exit 0
+          fi
+          label='triage: fixed-pending-release'
           gh issue list --label "$label" --state open --json number --jq '.[].number' | while read -r issue; do
             [ -n "$issue" ] || continue
             gh issue close "$issue" \
