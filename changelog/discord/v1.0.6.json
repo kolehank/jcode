@@ -1,0 +1,3 @@
+[
+  "# jcode v1.0.6\n\n**Privacy-first telemetry and reasoning-safe output.** Usage telemetry is now opt-in and ships disabled by default — regulated and government deployments send nothing until you explicitly enable it. DeepSeek-style inline reasoning markers are split out of visible text, so Bailian/DashScope-served models show thinking in the reasoning area and auth-test stops misreporting valid credentials.\n\nDownload: <https://github.com/kolehank/jcode/releases/tag/v1.0.6>"
+]

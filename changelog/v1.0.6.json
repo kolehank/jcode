@@ -1,0 +1,17 @@
+{
+  "version": "1.0.6",
+  "date": "2026-11-26",
+  "title": "Privacy-first telemetry and reasoning-safe OpenAI-compatible output",
+  "highlights": [
+    "Anonymous usage telemetry is now opt-in and ships disabled by default, so regulated and government deployments send nothing until an explicit `jcode telemetry enable` or `/telemetry` choice",
+    "DeepSeek-style inline reasoning markers are split out of visible text, so models served by Bailian/DashScope show their thinking in the reasoning area and the auth-test tool loop no longer misreports valid credentials"
+  ],
+  "improvements": [
+    "Inline  thinking/ response markers are routed to the reasoning channel across streaming chunk boundaries",
+    "OpenAI-compatible provider smoke compares only the answer after a leaked reasoning marker"
+  ],
+  "fixes": [
+    "Telemetry opt-out events are only sent when telemetry was actually enabled",
+    "Issue closure is skipped gracefully on repositories with Issues disabled"
+  ]
+}
