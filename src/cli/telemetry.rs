@@ -46,6 +46,9 @@ fn run_status(json: bool) -> Result<()> {
     if let Some(source) = source {
         println!("Opt-out source: {source}");
     }
+    if !status.enabled && source.is_none() {
+        println!("Telemetry is off by default; run `jcode telemetry enable` to opt in.");
+    }
     println!(
         "Installation telemetry ID: {}",
         status.telemetry_id.as_deref().unwrap_or("not assigned")

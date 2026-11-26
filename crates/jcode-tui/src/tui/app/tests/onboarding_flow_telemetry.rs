@@ -23,8 +23,8 @@ fn telemetry_pill_opens_settings_page_and_commits_choice() {
         assert!(app.handle_onboarding_continue_prompt_key(KeyCode::Right));
         assert!(app.handle_onboarding_continue_prompt_key(KeyCode::Enter));
 
-        // The page opens with Continue focused, content sharing unchecked,
-        // and every other category checked.
+        // Telemetry is opt-in: the page opens with Continue focused and every
+        // category unchecked until the user chooses.
         match app.onboarding_phase() {
             Some(OnboardingPhase::Login {
                 import: Some(review),
@@ -32,7 +32,7 @@ fn telemetry_pill_opens_settings_page_and_commits_choice() {
                 let page = review.telemetry.expect("telemetry page open");
                 assert_eq!(page.cursor, 0);
                 if !crate::telemetry::opt_out_forced_by_env() {
-                    assert_eq!(page.checked, [false, true, true, true, true, true]);
+                    assert_eq!(page.checked, [false; 6]);
                 }
             }
             other => panic!("expected telemetry page open, got {other:?}"),
@@ -103,7 +103,7 @@ fn telemetry_page_send_nothing_disables_telemetry_and_esc_goes_back() {
             Some(OnboardingPhase::Login { import: Some(_) })
         ));
         if !crate::telemetry::opt_out_forced_by_env() {
-            assert!(crate::telemetry::is_enabled());
+            assert!(!crate::telemetry::is_enabled());
         }
 
         // Reopen (Continue focused), uncheck everything with `n`, then

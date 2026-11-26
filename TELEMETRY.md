@@ -1,6 +1,18 @@
 # jcode Telemetry
 
-jcode collects **minimal usage statistics** to help understand how many people use jcode, what providers/models are popular, whether onboarding works, which feature families are used, how often sessions succeed, and whether performance/regressions are improving. This data helps prioritize development. Ordinary telemetry does **not** contain prompts, source code, model responses, or conversation transcripts.
+**Telemetry is opt-in.** jcode sends nothing until you explicitly enable it
+with `jcode telemetry enable`, the `/telemetry` TUI settings, or
+`JCODE_TELEMETRY=1`. This fork ships disabled by default so that deployments in
+regulated or government environments never transmit usage data without an
+explicit decision. The `JCODE_NO_TELEMETRY` / `DO_NOT_TRACK` environment
+variables still force telemetry off even after an opt-in.
+
+When enabled, jcode collects **minimal usage statistics** to help understand
+how many people use jcode, what providers/models are popular, whether
+onboarding works, which feature families are used, how often sessions succeed,
+and whether performance/regressions are improving. This data helps prioritize
+development. Ordinary telemetry does **not** contain prompts, source code,
+model responses, or conversation transcripts.
 
 Jcode also offers a separate, optional transcript-sharing program. It is off by
 default and requires choosing **Share full transcripts** in the telemetry
@@ -489,7 +501,17 @@ this policy alone does not activate collection.
 
 Agent-time, autonomy, and pain-attribution fields require the D1 migration in `telemetry-worker/migrations/0008_agent_time_and_churn.sql`. Until that migration is applied, schema v5 clients can still send the new JSON payloads, but the worker will drop unknown columns through dynamic column filtering and dashboard agent-time panels will remain empty or show optional-panel errors. After migration, run/redeploy the telemetry worker and query the dashboard's **Agent time / autonomy** panel.
 
-## How to Opt Out
+## How to Opt In / Out
+
+Any of these methods will enable telemetry:
+
+```bash
+# Option 1: Persistent CLI setting
+jcode telemetry enable
+
+# Option 2: Environment variable (single shell or systemd unit)
+export JCODE_TELEMETRY=1
+```
 
 Any of these methods will disable telemetry completely:
 

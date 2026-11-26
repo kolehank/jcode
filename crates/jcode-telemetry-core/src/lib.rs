@@ -482,25 +482,50 @@ pub fn opt_out_source() -> Option<TelemetryOptOutSource> {
 pub fn status() -> TelemetryStatus {
     let opt_out_source = opt_out_source();
     TelemetryStatus {
-        enabled: opt_out_source.is_none(),
+        enabled: is_enabled(),
         content_sharing_enabled: content_sharing_enabled(),
         opt_out_source,
         telemetry_id: read_existing_id(),
     }
 }
 
+/// Anonymous usage telemetry is opt-in: it stays off until the user enables it
+/// explicitly (marker file or `JCODE_TELEMETRY=1`). Environment opt-outs still
+/// win over any opt-in.
 pub fn is_enabled() -> bool {
-    match opt_out_source() {
-        Some(TelemetryOptOutSource::Environment) => {
-            logging::debug("telemetry disabled by environment");
-            false
-        }
-        Some(TelemetryOptOutSource::MarkerFile) => {
-            logging::debug("telemetry disabled by no_telemetry marker");
-            false
-        }
-        None => true,
+    if opt_out_forced_by_env() {
+        logging::debug("telemetry disabled by environment");
+        return false;
     }
+    if opt_out_marker_path().is_some_and(|path| path.exists()) {
+        logging::debug("telemetry disabled by no_telemetry marker");
+        return false;
+    }
+    let opted_in = env_opt_in() || opt_in_marker_path().is_some_and(|path| path.exists());
+    if !opted_in {
+        logging::debug("telemetry disabled by default (opt-in program)");
+    }
+    opted_in
+}
+
+/// Marker file recording that the user opted in to anonymous usage telemetry.
+/// Absence means telemetry stays off: this fork ships for environments where
+/// telemetry must be disabled by default.
+fn opt_in_marker_path() -> Option<std::path::PathBuf> {
+    storage::jcode_dir()
+        .ok()
+        .map(|d| d.join("telemetry_enabled"))
+}
+
+/// Whether `JCODE_TELEMETRY` explicitly opts this process in. Matches the
+/// truthiness rules used by the opt-out variables.
+fn env_opt_in() -> bool {
+    std::env::var("JCODE_TELEMETRY").is_ok_and(|value| {
+        !matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "" | "0" | "false" | "no" | "off"
+        )
+    })
 }
 
 /// Marker file recording that the user opted out of anonymous usage telemetry.
@@ -526,37 +551,62 @@ pub fn opt_out_forced_by_env() -> bool {
     is_truthy("JCODE_NO_TELEMETRY") || is_truthy("DO_NOT_TRACK")
 }
 
-/// Persist the user's anonymous-usage telemetry choice. `enabled == false`
-/// writes the `no_telemetry` marker; `true` removes it. Returns whether the
-/// change was persisted (an env-var opt-out still overrides at runtime).
+/// Persist the user's anonymous-usage telemetry choice. `enabled == true`
+/// writes the `telemetry_enabled` opt-in marker (removing any opt-out), while
+/// `false` removes the opt-in marker and records the persistent opt-out. Returns
+/// whether the change was persisted (an env-var opt-out still overrides at
+/// runtime).
 pub fn set_usage_telemetry_enabled(enabled: bool) -> bool {
-    let Some(path) = opt_out_marker_path() else {
+    let (Some(opt_out), Some(opt_in)) = (opt_out_marker_path(), opt_in_marker_path()) else {
         return false;
     };
     if enabled {
         #[cfg(not(test))]
-        if path.exists() || opt_out_forced_by_env() {
+        if opt_out.exists() || opt_out_forced_by_env() {
             usage_outbox::clear_pending();
         }
-        match std::fs::remove_file(&path) {
-            Ok(()) => true,
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => true,
-            Err(err) => {
+        if let Err(err) = std::fs::remove_file(&opt_out) {
+            if err.kind() != std::io::ErrorKind::NotFound {
                 logging::debug(&format!("failed to remove no_telemetry marker: {err}"));
+                return false;
+            }
+        }
+        if let Some(parent) = opt_in.parent() {
+            if let Err(err) = std::fs::create_dir_all(parent) {
+                logging::debug(&format!(
+                    "failed to create telemetry marker directory: {err}"
+                ));
+                return false;
+            }
+        }
+        match std::fs::write(&opt_in, b"1") {
+            Ok(()) => {
+                logging::debug("usage telemetry opted in via marker");
+                true
+            }
+            Err(err) => {
+                logging::debug(&format!("failed to write telemetry_enabled marker: {err}"));
                 false
             }
         }
     } else {
-        // Record the explicit in-app choice once, while telemetry is still
-        // enabled. Failure never prevents or delays the opt-out itself, and
-        // environment-forced opt-outs remain completely silent.
-        if !path.exists() && !opt_out_forced_by_env() {
+        // Record the explicit in-app choice once, and only when telemetry was
+        // actually on: with opt-in defaults there is nothing to opt out of.
+        let was_enabled =
+            !opt_out.exists() && !opt_out_forced_by_env() && (opt_in.exists() || env_opt_in());
+        if was_enabled {
             emit_telemetry_opt_out();
         }
-        if let Some(parent) = path.parent() {
+        if let Err(err) = std::fs::remove_file(&opt_in) {
+            if err.kind() != std::io::ErrorKind::NotFound {
+                logging::debug(&format!("failed to remove telemetry_enabled marker: {err}"));
+                return false;
+            }
+        }
+        if let Some(parent) = opt_out.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        match std::fs::write(&path, b"1") {
+        match std::fs::write(&opt_out, b"1") {
             Ok(()) => {
                 logging::debug("usage telemetry opted out via marker");
                 #[cfg(not(test))]

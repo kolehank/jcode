@@ -20,6 +20,7 @@ struct TestEnvironment {
     previous_home: Option<OsString>,
     previous_no_telemetry: Option<OsString>,
     previous_do_not_track: Option<OsString>,
+    previous_telemetry: Option<OsString>,
     _lock: MutexGuard<'static, ()>,
 }
 
@@ -28,6 +29,7 @@ impl Drop for TestEnvironment {
         restore_env_var("JCODE_HOME", self.previous_home.take());
         restore_env_var("JCODE_NO_TELEMETRY", self.previous_no_telemetry.take());
         restore_env_var("DO_NOT_TRACK", self.previous_do_not_track.take());
+        restore_env_var("JCODE_TELEMETRY", self.previous_telemetry.take());
     }
 }
 
@@ -49,15 +51,21 @@ fn global_test_lock() -> TestEnvironment {
     let previous_home = std::env::var_os("JCODE_HOME");
     let previous_no_telemetry = std::env::var_os("JCODE_NO_TELEMETRY");
     let previous_do_not_track = std::env::var_os("DO_NOT_TRACK");
+    let previous_telemetry = std::env::var_os("JCODE_TELEMETRY");
     jcode_core::env::set_var("JCODE_HOME", home.path());
     jcode_core::env::remove_var("JCODE_NO_TELEMETRY");
     jcode_core::env::remove_var("DO_NOT_TRACK");
+    // Telemetry is opt-in now; most tests exercise the emission paths, so the
+    // shared fixture opts the fresh home in by default. Tests that assert the
+    // default-off behavior remove this variable themselves.
+    jcode_core::env::set_var("JCODE_TELEMETRY", "1");
 
     TestEnvironment {
         _home: home,
         previous_home,
         previous_no_telemetry,
         previous_do_not_track,
+        previous_telemetry,
         _lock: lock,
     }
 }
@@ -96,14 +104,85 @@ fn record_turn_emits_prompt_submitted_immediately() {
 #[test]
 fn telemetry_status_on_fresh_home_is_read_only() {
     let _guard = lock_test_env();
+    // The fixture opts in for emission-heavy tests; a real fresh home is off.
+    jcode_core::env::remove_var("JCODE_TELEMETRY");
 
     let snapshot = status();
 
-    assert!(snapshot.enabled);
+    assert!(!snapshot.enabled);
     assert_eq!(snapshot.opt_out_source, None);
     assert_eq!(snapshot.telemetry_id, None);
     assert!(!snapshot.content_sharing_enabled);
     assert!(!telemetry_id_path().expect("telemetry id path").exists());
+}
+
+#[test]
+fn telemetry_is_opt_in_and_stays_off_until_explicitly_enabled() {
+    let _guard = lock_test_env();
+    jcode_core::env::remove_var("JCODE_TELEMETRY");
+
+    assert!(!is_enabled());
+    assert!(!status().enabled);
+    assert_eq!(status().opt_out_source, None);
+
+    // No marker and no env: nothing is ever sent.
+    assert!(!opt_in_marker_path().expect("opt-in marker path").exists());
+}
+
+#[test]
+fn telemetry_env_opt_in_enables_emission() {
+    let _guard = lock_test_env();
+    jcode_core::env::set_var("JCODE_TELEMETRY", "1");
+
+    assert!(is_enabled());
+}
+
+#[test]
+fn telemetry_marker_opt_in_enables_and_persists() {
+    let _guard = lock_test_env();
+    jcode_core::env::remove_var("JCODE_TELEMETRY");
+    let opt_in = opt_in_marker_path().expect("opt-in marker path");
+
+    assert!(set_usage_telemetry_enabled(true));
+    assert!(opt_in.exists());
+    assert!(!opt_out_marker_path().expect("opt-out marker path").exists());
+    assert!(is_enabled());
+    assert!(status().enabled);
+
+    // Disabling removes the opt-in marker and records the persistent opt-out.
+    assert!(set_usage_telemetry_enabled(false));
+    assert!(!opt_in.exists());
+    assert!(opt_out_marker_path().expect("opt-out marker path").exists());
+    assert!(!is_enabled());
+}
+
+#[test]
+fn telemetry_disable_never_sends_an_opt_out_event_when_nothing_was_enabled() {
+    let _guard = lock_test_env();
+    jcode_core::env::remove_var("JCODE_TELEMETRY");
+    TEST_EMITTED_PAYLOADS.lock().unwrap().clear();
+
+    assert!(set_usage_telemetry_enabled(false));
+    let payloads = TEST_EMITTED_PAYLOADS.lock().unwrap().clone();
+    assert!(
+        !payloads.iter().any(|p| p["event"] == "telemetry_opt_out"),
+        "opt-in telemetry must not emit an opt-out event when never enabled"
+    );
+}
+
+#[test]
+fn environment_opt_out_takes_precedence_over_opt_in() {
+    let _guard = lock_test_env();
+    assert!(set_usage_telemetry_enabled(true));
+    jcode_core::env::set_var("JCODE_NO_TELEMETRY", "1");
+
+    let snapshot = status();
+
+    assert!(!snapshot.enabled);
+    assert_eq!(
+        snapshot.opt_out_source,
+        Some(TelemetryOptOutSource::Environment)
+    );
 }
 
 #[test]
