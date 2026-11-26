@@ -565,19 +565,19 @@ pub fn set_usage_telemetry_enabled(enabled: bool) -> bool {
         if opt_out.exists() || opt_out_forced_by_env() {
             usage_outbox::clear_pending();
         }
-        if let Err(err) = std::fs::remove_file(&opt_out) {
-            if err.kind() != std::io::ErrorKind::NotFound {
-                logging::debug(&format!("failed to remove no_telemetry marker: {err}"));
-                return false;
-            }
+        if let Err(err) = std::fs::remove_file(&opt_out)
+            && err.kind() != std::io::ErrorKind::NotFound
+        {
+            logging::debug(&format!("failed to remove no_telemetry marker: {err}"));
+            return false;
         }
-        if let Some(parent) = opt_in.parent() {
-            if let Err(err) = std::fs::create_dir_all(parent) {
-                logging::debug(&format!(
-                    "failed to create telemetry marker directory: {err}"
-                ));
-                return false;
-            }
+        if let Some(parent) = opt_in.parent()
+            && let Err(err) = std::fs::create_dir_all(parent)
+        {
+            logging::debug(&format!(
+                "failed to create telemetry marker directory: {err}"
+            ));
+            return false;
         }
         match std::fs::write(&opt_in, b"1") {
             Ok(()) => {
@@ -597,11 +597,11 @@ pub fn set_usage_telemetry_enabled(enabled: bool) -> bool {
         if was_enabled {
             emit_telemetry_opt_out();
         }
-        if let Err(err) = std::fs::remove_file(&opt_in) {
-            if err.kind() != std::io::ErrorKind::NotFound {
-                logging::debug(&format!("failed to remove telemetry_enabled marker: {err}"));
-                return false;
-            }
+        if let Err(err) = std::fs::remove_file(&opt_in)
+            && err.kind() != std::io::ErrorKind::NotFound
+        {
+            logging::debug(&format!("failed to remove telemetry_enabled marker: {err}"));
+            return false;
         }
         if let Some(parent) = opt_out.parent() {
             let _ = std::fs::create_dir_all(parent);
